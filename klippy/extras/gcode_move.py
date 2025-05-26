@@ -28,7 +28,7 @@ class GCodeMove:
         handlers = [
             'G1', 'G20', 'G21',
             'M82', 'M83', 'G90', 'G91', 'G92', 'M220', 'M221',
-            'SET_GCODE_OFFSET', 'SAVE_GCODE_STATE', 'RESTORE_GCODE_STATE',
+            'SET_GCODE_OFFSET', 'SAVE_GCODE_STATE', 'RESTORE_GCODE_STATE', 'ALLOW_OUT_OF_PRINT_AREA',
         ]
         for cmd in handlers:
             func = getattr(self, 'cmd_' + cmd)
@@ -52,6 +52,7 @@ class GCodeMove:
         self.saved_states = {}
         self.move_transform = self.move_with_transform = None
         self.position_with_transform = (lambda: [0., 0., 0., 0.])
+        self.out_of_p_a_enabled = 1
     def _handle_ready(self):
         self.is_printer_ready = True
         if self.move_transform is None:
@@ -108,6 +109,7 @@ class GCodeMove:
             'homing_origin': self.Coord(*self.homing_position[:4]),
             'position': self.Coord(*self.last_position[:4]),
             'gcode_position': self.Coord(*move_position[:4]),
+            'out_of_p_a_enabled': self.out_of_p_a_enabled,
         }
     def reset_last_position(self):
         if self.is_printer_ready:
@@ -285,6 +287,8 @@ class GCodeMove:
                           "gcode homing: %s"
                           % (mcu_pos, stepper_pos, kin_pos, toolhead_pos,
                              gcode_pos, base_pos, homing_pos))
-
+    cmd_ALLOW_OUT_OF_PRINT_AREA_help = "on/off"
+    def cmd_ALLOW_OUT_OF_PRINT_AREA(self, gcmd):
+        self.out_of_p_a_enabled = gcmd.get_int("ENABLE", 0)
 def load_config(config):
     return GCodeMove(config)

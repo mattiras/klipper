@@ -343,14 +343,38 @@ class GenericPrinterRail:
             self.position_min = config.getfloat('position_min', 0.)
             self.position_max = config.getfloat(
                 'position_max', above=self.position_min)
+            self.print_min = config.getfloat('print_min', None)
+            self.print_max = config.getfloat('print_max', None)
         else:
             self.position_min = 0.
             self.position_max = self.position_endstop
+            self.print_min = config.getfloat('print_min', None)
+            self.print_max = config.getfloat('print_max', None)
+            
+        if self.print_min is None:
+            self.print_min = self.position_min
+            
+        if self.print_max is None:
+            self.print_max = self.position_max
+        
         if (self.position_endstop < self.position_min
             or self.position_endstop > self.position_max):
             raise config.error(
                 "position_endstop in section '%s' must be between"
                 " position_min and position_max" % config.get_name())
+                
+        if (self.print_max < self.position_min
+            or self.print_max > self.position_max):
+            raise config.error(
+                "print_max in section '%s' must be between"
+                " position_min and position_max" % config.get_name())
+                
+        if (self.print_min < self.position_min
+            or self.print_min > self.position_max):
+            raise config.error(
+                "print_min in section '%s' must be between"
+                " position_min and position_max" % config.get_name())
+                
         # Homing mechanics
         self.homing_speed = config.getfloat('homing_speed', 5.0, above=0.)
         self.second_homing_speed = config.getfloat(
@@ -387,7 +411,11 @@ class GenericPrinterRail:
             return self.name.split()[-1]
         return self.name
     def get_range(self):
-        return self.position_min, self.position_max
+        self.gcodestatus = self.printer.lookup_object('gcode_move')
+        if self.gcodestatus.get_status()['out_of_p_a_enabled'] == 0:
+            return self.print_min, self.print_max
+        else:
+            return self.position_min, self.position_max
     def get_homing_info(self):
         homing_info = collections.namedtuple('homing_info', [
             'speed', 'position_endstop', 'retract_speed', 'retract_dist',

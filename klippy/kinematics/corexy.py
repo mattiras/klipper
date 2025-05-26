@@ -71,6 +71,9 @@ class CoreXYKinematics:
                     raise move.move_error("Must home axis first")
                 raise move.move_error()
     def check_move(self, move):
+        for i in (0, 1, 2):
+            if self.limits[i][0] < self.limits[i][1]:
+                self.limits[i] = self.rails[i].get_range()
         limits = self.limits
         xpos, ypos = move.end_pos[:2]
         if (xpos < limits[0][0] or xpos > limits[0][1]
