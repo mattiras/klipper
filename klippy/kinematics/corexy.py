@@ -20,6 +20,7 @@ class CoreXYKinematics:
         self.rails[2].setup_itersolve('cartesian_stepper_alloc', b'z')
         for s in self.get_steppers():
             s.set_trapq(toolhead.get_trapq())
+                                                              
         # Setup boundary checks
         max_velocity, max_accel = toolhead.get_max_velocity()
         self.max_z_velocity = config.getfloat(
@@ -45,7 +46,7 @@ class CoreXYKinematics:
             if axis_name in clear_axes:
                 self.limits[axis] = (1.0, -1.0)
     def home(self, homing_state):
-        # Each axis is homed independently and in order
+        # Each axis is homed independently and in orde
         for axis in homing_state.get_axes():
             rail = self.rails[axis]
             # Determine movement
@@ -70,6 +71,8 @@ class CoreXYKinematics:
                     raise move.move_error("Must home axis first")
                 raise move.move_error()
     def check_move(self, move):
+        for i in (0, 1, 2):
+            self.limits[i] = self.rails[i].get_range()
         limits = self.limits
         xpos, ypos = move.end_pos[:2]
         if (xpos < limits[0][0] or xpos > limits[0][1]
