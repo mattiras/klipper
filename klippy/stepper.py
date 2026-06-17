@@ -50,7 +50,9 @@ class MCU_stepper:
         self._stepqueue = ffi_lib.syncemitter_get_stepcompress(
             self._syncemitter)
         ffi_lib.stepcompress_set_invert_sdir(self._stepqueue, self._invert_dir)
+                                                     
         self._stepper_kinematics = None
+                                                                         
         self._itersolve_check_active = ffi_lib.itersolve_check_active
         self._trapq = ffi_main.NULL
         printer.register_event_handler('klippy:connect',
@@ -125,6 +127,7 @@ class MCU_stepper:
         self._get_position_cmd = self._mcu.lookup_query_command(
             "stepper_get_position oid=%c",
             "stepper_position oid=%c pos=%i", oid=self._oid)
+                                                     
         max_error_ticks = self._mcu.seconds_to_clock(MAX_STEPCOMPRESS_ERROR)
         ffi_main, ffi_lib = chelper.get_ffi()
         ffi_lib.stepcompress_fill(self._stepqueue, self._oid, max_error_ticks,
@@ -208,6 +211,8 @@ class MCU_stepper:
             raise error("Internal error in stepcompress")
         data = (self._reset_cmd_tag, self._oid, 0)
         ffi_lib.syncemitter_queue_msg(self._syncemitter, 0, data, len(data))
+               
+                                                         
         self._query_mcu_position()
     def _query_mcu_position(self):
         if self._mcu.is_fileoutput():
@@ -238,11 +243,19 @@ class MCU_stepper:
         return old_tq
     def add_active_callback(self, cb):
         self._active_callbacks.append(cb)
+                                         
+                                         
         if len(self._active_callbacks) == 1:
             printer = self._mcu.get_printer()
             motion_queuing = printer.lookup_object('motion_queuing')
             motion_queuing.register_flush_callback(self._check_active)
     def _check_active(self, must_flush_time, max_step_gen_time):
+                   
+                                            
+                                           
+                              
+                           
+                        
         sk = self._stepper_kinematics
         ret = self._itersolve_check_active(sk, max_step_gen_time)
         if not ret:
@@ -265,6 +278,7 @@ class MCU_stepper:
 # Helper code to build a stepper object from a config section
 def PrinterStepper(config, units_in_radians=False):
     printer = config.get_printer()
+                            
     # Stepper definition
     ppins = printer.lookup_object('pins')
     step_pin = config.get('step_pin')
@@ -349,14 +363,27 @@ class GenericPrinterRail:
             self.position_min = config.getfloat('position_min', 0.)
             self.position_max = config.getfloat(
                 'position_max', above=self.position_min)
+            self.print_max = config.getfloat('print_max', None)
         else:
             self.position_min = 0.
             self.position_max = self.position_endstop
+            self.print_max = config.getfloat('print_max', None)
+            
+        if self.print_max is None:
+            self.print_max = self.position_max
+        
         if (self.position_endstop < self.position_min
             or self.position_endstop > self.position_max):
             raise config.error(
                 "position_endstop in section '%s' must be between"
                 " position_min and position_max" % config.get_name())
+                
+        if (self.print_max < self.position_min
+            or self.print_max > self.position_max):
+            raise config.error(
+                "print_max in section '%s' must be between"
+                " position_min and position_max" % config.get_name())
+                
         # Homing mechanics
         self.homing_speed = config.getfloat('homing_speed', 5.0, above=0.)
         self.second_homing_speed = config.getfloat(
@@ -393,7 +420,12 @@ class GenericPrinterRail:
             return self.name.split()[-1]
         return self.name
     def get_range(self):
-        return self.position_min, self.position_max
+        self.gcodestatus = self.printer.lookup_object('gcode_move')
+        if self.gcodestatus.get_status()['out_of_p_a_enabled'] == 0:
+            return self.position_min, self.print_max
+        else:
+            return self.position_min, self.position_max
+
     def get_homing_info(self):
         homing_info = collections.namedtuple('homing_info', [
             'speed', 'position_endstop', 'retract_speed', 'retract_dist',
@@ -448,6 +480,9 @@ class GenericPrinterRail:
     def setup_itersolve(self, alloc_func, *params):
         for stepper in self.steppers:
             stepper.setup_itersolve(alloc_func, *params)
+                                         
+                                     
+                                              
     def set_trapq(self, trapq):
         for stepper in self.steppers:
             stepper.set_trapq(trapq)
