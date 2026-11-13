@@ -60,7 +60,8 @@ send_trsync_set_timeout(struct trdispatch_mcu *tdm)
 
 // Handle a trsync_state message (callback from serialqueue fastreader)
 static void
-handle_trsync_state(struct fastreader *fr, uint8_t *data, int len)
+handle_trsync_state(struct fastreader *fr, double eventtime
+                    , uint8_t *data, int len)
 {
     struct trdispatch_mcu *tdm = container_of(fr, struct trdispatch_mcu, fr);
 
@@ -89,7 +90,8 @@ handle_trsync_state(struct fastreader *fr, uint8_t *data, int len)
 
     // mcu is still working okay - update last_status_clock
     serialqueue_get_clock_est(tdm->sq, &tdm->ce);
-    tdm->last_status_clock = clock_from_clock32(&tdm->ce, clock);
+    uint64_t est_msg_clock = clock_from_time(&tdm->ce, eventtime);
+    tdm->last_status_clock = clock_from_clock32(est_msg_clock, clock);
 
     // Determine minimum acknowledged time among all mcus
     double min_time = PR_NEVER, next_min_time = PR_NEVER;
@@ -112,7 +114,7 @@ handle_trsync_state(struct fastreader *fr, uint8_t *data, int len)
     list_for_each_entry(m, &td->tdm_list, node) {
         double status_time = m == min_tdm ? next_min_time : min_time;
         uint64_t expire=clock_from_time(&m->ce, status_time) + m->expire_ticks;
-        if ((int64_t)(expire - m->expire_clock) >= m->min_extend_ticks) {
+        if (expire >= m->expire_clock + m->min_extend_ticks) {
             m->expire_clock = expire;
             send_trsync_set_timeout(m);
         }
